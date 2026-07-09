@@ -51,7 +51,7 @@ binary lands in `target/release/fnox-add`; `make install` copies it to
 
 ```toml
 [groups.personal]
-provider = "onepass"                 # an existing fnox provider (account + vault live there)
+provider = "onepass"                 # an existing fnox provider
 secrets = [
   "GITHUB_TOKEN:api-keys/github/credential",
   "SONAR_TOKEN:api-keys/sonarcloud/credential",
