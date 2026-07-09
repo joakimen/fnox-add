@@ -1,6 +1,6 @@
 [package]
 name = "fnox-add"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "Fuzzy-select fnox secret references into a project's fnox.toml"
 authors = ["Joakim L. Engeset <joakim.engeset@gmail.com>"]
