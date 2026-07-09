@@ -11,7 +11,7 @@ build: fmt-check lint test
 test:
 	cargo test
 
-# Clippy is Rust's linter; -D warnings makes any warning fail the build.
+# Lint; -D warnings fails the build on any warning.
 .PHONY: lint
 lint:
 	cargo clippy --all-targets -- -D warnings
@@ -26,7 +26,7 @@ fmt:
 fmt-check:
 	cargo fmt --check
 
-# Install to ~/.cargo/bin (already on your PATH).
+# Install the release binary to ~/.cargo/bin.
 .PHONY: install
 install:
 	cargo install --path .
