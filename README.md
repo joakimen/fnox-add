@@ -47,7 +47,8 @@ binary lands in `target/release/fnox-add`; `make install` copies it to
 
 ## Catalog config
 
-`~/.config/fnox-add/config.toml` (override with `--config` or `FNOX_ADD_CONFIG`):
+`~/.config/fnox-add/config.toml` (override with `--config` or `FNOX_ADD_CONFIG`).
+Run `fnox-add --init` to scaffold this file with a commented-out example:
 
 ```toml
 [groups.personal]
@@ -73,6 +74,7 @@ secrets = [
 ## Usage
 
 ```sh
+fnox-add --init          # scaffold a starter config file
 fnox-add                 # fuzzy multi-select across all groups
 fnox-add --group work    # restrict to one group
 fnox-add --dry-run       # print the fnox commands without running them

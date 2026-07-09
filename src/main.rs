@@ -5,8 +5,12 @@ mod config;
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;
-use config::{Item, build_items, build_set_args, parse_config, resolve_config_path, value_for_ref};
+use config::{
+    CONFIG_TEMPLATE, Item, build_items, build_set_args, parse_config, resolve_config_path,
+    value_for_ref,
+};
 use inquire::{InquireError, MultiSelect};
+use std::path::Path;
 use std::process::Command;
 
 #[derive(Parser)]
@@ -16,6 +20,10 @@ use std::process::Command;
     about = "Fuzzy-select fnox secret references into a project's fnox.toml"
 )]
 struct Cli {
+    /// Write a starter config file and exit
+    #[arg(long)]
+    init: bool,
+
     /// Restrict to a single catalog group
     #[arg(short, long)]
     group: Option<String>,
@@ -43,6 +51,10 @@ fn main() -> Result<()> {
         dirs::home_dir().as_deref().and_then(|p| p.to_str()),
     )?;
 
+    if cli.init {
+        return init_config(&path);
+    }
+
     let data = std::fs::read_to_string(&path)
         .with_context(|| format!("reading config {}", path.display()))?;
     let cfg = parse_config(&data).with_context(|| format!("parsing config {}", path.display()))?;
@@ -65,6 +77,21 @@ fn main() -> Result<()> {
     }
 
     apply(&selected, cli.dry_run, cli.target.as_deref())
+}
+
+/// Write the starter catalog template to `path`, creating parent directories.
+/// Refuses to overwrite an existing file.
+fn init_config(path: &Path) -> Result<()> {
+    if path.exists() {
+        bail!("config already exists at {}", path.display());
+    }
+    if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
+    }
+    std::fs::write(path, CONFIG_TEMPLATE).with_context(|| format!("writing {}", path.display()))?;
+    println!("Created {}", path.display());
+    Ok(())
 }
 
 /// Run (or, in dry-run, print) `fnox set` for each selected item, continuing past

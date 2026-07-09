@@ -142,6 +142,25 @@ pub fn resolve_config_path(
     Ok(base.join("fnox-add").join("config.toml"))
 }
 
+/// Starter catalog written by `--init`. Every example line is commented out, so a
+/// freshly created file parses as an empty catalog until the user fills it in.
+pub const CONFIG_TEMPLATE: &str = r#"# fnox-add catalog: named groups of ENV_NAME:reference entries, each bound to an
+# existing fnox provider. Uncomment and edit to define your own.
+#
+# [groups.personal]
+# provider = "onepass"
+# secrets = [
+#   "GITHUB_TOKEN:api-keys/github/credential",
+#   "SONAR_TOKEN:api-keys/sonarcloud/credential",
+# ]
+#
+# [groups.work]
+# provider = "onepass-work"
+# secrets = [
+#   "ARTIFACTORY_TOKEN:work-vault/artifactory/token",
+# ]
+"#;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -294,5 +313,11 @@ secrets = ["ARTIFACTORY_TOKEN:work/artifactory/token"]
             resolve_config_path(Some(""), Some(""), Some(""), Some("/home/tester")).unwrap(),
             PathBuf::from("/home/tester/.config/fnox-add/config.toml")
         );
+    }
+
+    #[test]
+    fn config_template_parses_as_empty_catalog() {
+        let cfg = parse_config(CONFIG_TEMPLATE).unwrap();
+        assert!(cfg.groups.is_empty());
     }
 }
