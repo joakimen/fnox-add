@@ -1,0 +1,19 @@
+[package]
+name = "fnox-add"
+version = "0.1.0"
+edition = "2024"
+description = "Fuzzy-select fnox secret references into a project's fnox.toml"
+authors = ["Joakim L. Engeset <joakim.engeset@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/joakimen/fnox-add"
+readme = "README.md"
+keywords = ["cli", "secrets", "fnox"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+anyhow = "1.0.103"
+clap = { version = "4.5.61", features = ["derive"] }
+dirs = "6.0.0"
+inquire = "0.9.4"
+serde = { version = "1.0.228", features = ["derive"] }
+toml = "1.0.7"
