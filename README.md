@@ -19,7 +19,12 @@ mise use -g github:joakimen/fnox-add
 
 Or download the latest `fnox-add-aarch64-apple-darwin.tar.gz` from the
 [releases page](https://github.com/joakimen/fnox-add/releases) and put the
-extracted `fnox-add` binary on your PATH.
+extracted `fnox-add` binary on your PATH. Each release binary carries a signed
+build-provenance attestation, verifiable with:
+
+```sh
+gh attestation verify fnox-add-aarch64-apple-darwin.tar.gz --repo joakimen/fnox-add
+```
 
 Or build from source with a Rust toolchain via [rustup](https://rustup.rs):
 
