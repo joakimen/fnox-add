@@ -14,7 +14,7 @@ current project's `fnox.toml` via `fnox set`.
 With [mise](https://mise.jdx.dev) (recommended):
 
 ```sh
-mise use -g ubi:joakimen/fnox-add
+mise use -g github:joakimen/fnox-add
 ```
 
 Or download the latest `fnox-add-aarch64-apple-darwin.tar.gz` from the
