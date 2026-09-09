@@ -2,6 +2,8 @@
 //! write them into the current project's `fnox.toml` via `fnox set`.
 
 mod config;
+mod picker;
+mod tui;
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;
@@ -9,7 +11,6 @@ use config::{
     CONFIG_TEMPLATE, Item, build_items, build_set_args, parse_config, resolve_config_path,
     value_for_ref,
 };
-use inquire::{InquireError, MultiSelect};
 use std::path::Path;
 use std::process::Command;
 
@@ -64,14 +65,12 @@ fn main() -> Result<()> {
         bail!("no secrets in catalog for the selected group");
     }
 
-    let selected = match MultiSelect::new("Select secrets to add:", items).prompt() {
-        Ok(sel) => sel,
-        // Esc / Ctrl-C: nothing to do.
-        Err(InquireError::OperationCanceled | InquireError::OperationInterrupted) => {
-            return Ok(());
-        }
-        Err(e) => return Err(e.into()),
+    let labels = items.iter().map(Item::to_string).collect();
+    // Esc / Ctrl-C: nothing to do.
+    let Some(picked) = tui::select("Select secrets to add:", labels)? else {
+        return Ok(());
     };
+    let selected: Vec<Item> = picked.into_iter().map(|i| items[i].clone()).collect();
     if selected.is_empty() {
         return Ok(());
     }

@@ -42,6 +42,21 @@ fnox-add --target path/to/fnox.toml
 Select entries in the picker and confirm; each one runs `fnox set` to write the
 reference into the project's `fnox.toml`.
 
+## Keys
+
+Type to fuzzy-filter. The filter line takes the usual readline keys.
+
+| Key | Action |
+| --- | --- |
+| `tab` | Toggle selection of the highlighted entry |
+| `↑` / `↓`, `ctrl-p` / `ctrl-n` | Move the highlight |
+| `enter` | Confirm the selection |
+| `esc`, `ctrl-c` | Cancel |
+| `ctrl-a` / `ctrl-e` | Start / end of line |
+| `ctrl-b` / `ctrl-f` | Back / forward one character |
+| `ctrl-w` | Delete the previous word |
+| `ctrl-u` / `ctrl-k` | Delete to start / end of line |
+
 ## Configuration
 
 The catalog lives at `~/.config/fnox-add/config.toml` (override with `--config` or
