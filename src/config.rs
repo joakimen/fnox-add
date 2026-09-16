@@ -1,6 +1,5 @@
 //! Pure catalog logic: parsing the config, flattening it into selectable items,
-//! and building the `fnox set` argument list. Kept free of I/O so it is easy to
-//! unit-test.
+//! and building the `fnox set` argument list.
 
 use anyhow::{Context, Result, anyhow, bail};
 use serde::Deserialize;
@@ -114,10 +113,9 @@ pub fn build_set_args(item: &Item, target: Option<&str>) -> Vec<String> {
     args
 }
 
-/// Resolve the catalog config path from the given inputs (pure, so it is testable
-/// without mutating process environment). Precedence: explicit flag, then
+/// Resolve the catalog config path. Precedence: explicit flag, then
 /// `FNOX_ADD_CONFIG`, then `$XDG_CONFIG_HOME/fnox-add/config.toml`, then
-/// `~/.config/fnox-add/config.toml`.
+/// `~/.config/fnox-add/config.toml`. Empty values are ignored.
 pub fn resolve_config_path(
     flag: Option<&str>,
     env_config: Option<&str>,
