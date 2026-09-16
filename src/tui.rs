@@ -144,6 +144,17 @@ fn truncate(line: &str, cols: u16) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::picker::Action;
+
+    #[test]
+    fn counters_report_matches_total_and_selection() {
+        let mut picker = Picker::new(vec!["alpha".to_string(), "beta".to_string()]);
+        assert_eq!(counters(&picker), "  2/2 · 0 selected");
+
+        picker.apply(Action::ToggleHighlighted);
+        picker.apply(Action::Insert('b'));
+        assert_eq!(counters(&picker), "  1/2 · 1 selected");
+    }
 
     #[test]
     fn list_height_leaves_room_for_chrome() {
