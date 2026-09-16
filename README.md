@@ -1,6 +1,8 @@
 # fnox-add
 
-![CI](https://github.com/joakimen/fnox-add/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/joakimen/fnox-add/actions/workflows/ci.yml/badge.svg)](https://github.com/joakimen/fnox-add/actions/workflows/ci.yml)
+[![Rust](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fjoakimen%2Ffnox-add%2Fmain%2Frust-toolchain.toml&query=%24.toolchain.channel&label=rust)](rust-toolchain.toml)
+[![License](https://img.shields.io/github/license/joakimen/fnox-add)](LICENSE)
 
 Fuzzy-select secret references from a personal catalog and write them into a
 project's `fnox.toml`.
