@@ -4,14 +4,13 @@ on:
   push:
     tags: ["v*"]
 
-permissions:
-  contents: write
-  id-token: write
-  attestations: write
-
 jobs:
   release:
     runs-on: macos-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     env:
       TARGET: aarch64-apple-darwin
     steps:
