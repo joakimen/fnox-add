@@ -1,5 +1,3 @@
-BINARY := fnox-add
-
 .DEFAULT_GOAL := build
 
 .PHONY: build
