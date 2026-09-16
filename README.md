@@ -41,7 +41,7 @@ fnox-add --dry-run       # print the commands without running them
 fnox-add --target path/to/fnox.toml
 ```
 
-Select entries in the picker and confirm; each one runs `fnox set` to write the
+Select entries in the picker and confirm. Each one runs `fnox set` to write the
 reference into the project's `fnox.toml`.
 
 ## Keys
@@ -61,8 +61,9 @@ Type to fuzzy-filter. The filter line takes the usual readline keys.
 
 ## Configuration
 
-The catalog lives at `~/.config/fnox-add/config.toml` (override with `--config` or
-`FNOX_ADD_CONFIG`). Run `fnox-add --init` to scaffold it.
+The catalog lives at `$XDG_CONFIG_HOME/fnox-add/config.toml`, or
+`~/.config/fnox-add/config.toml` when `XDG_CONFIG_HOME` is unset. Override the
+path with `--config` or `FNOX_ADD_CONFIG`. Run `fnox-add --init` to scaffold it.
 
 ```toml
 [groups.personal]
@@ -80,6 +81,6 @@ secrets = [
 ```
 
 - Each entry is `ENV_NAME:reference`, split on the first `:`.
-- A bare `vault/item/field` reference is stored as `op://vault/item/field`; a
+- A bare `vault/item/field` reference is stored as `op://vault/item/field`. A
   reference with a scheme (`op://…`, `aws://…`) is stored verbatim.
-- `provider` names an existing fnox provider; fnox-add never creates providers.
+- `provider` names an existing fnox provider. fnox-add never creates providers.
