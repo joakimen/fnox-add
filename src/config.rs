@@ -232,6 +232,34 @@ mod tests {
         );
     }
 
+    #[test]
+    fn item_label_shows_env_group_and_reference() {
+        let item = Item {
+            env: "SONAR_TOKEN".to_string(),
+            reference: "api-keys/sonarcloud/credential".to_string(),
+            group: "personal".to_string(),
+            provider: "onepass".to_string(),
+        };
+        assert_eq!(
+            item.to_string(),
+            "SONAR_TOKEN  [personal]  api-keys/sonarcloud/credential"
+        );
+    }
+
+    #[test]
+    fn parse_config_defaults_missing_groups_and_secrets_to_empty() {
+        assert!(parse_config("").unwrap().groups.is_empty());
+
+        let cfg = parse_config("[groups.x]\nprovider = \"p\"").unwrap();
+        assert!(cfg.groups["x"].secrets.is_empty());
+        assert!(build_items(&cfg, None).unwrap().is_empty());
+    }
+
+    #[test]
+    fn parse_config_requires_a_provider_key() {
+        assert!(parse_config("[groups.x]\nsecrets = [\"A:v/i/f\"]").is_err());
+    }
+
     fn sample() -> Config {
         parse_config(
             r#"
