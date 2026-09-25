@@ -65,9 +65,9 @@ fn main() -> Result<()> {
         bail!("no secrets in catalog for the selected group");
     }
 
-    let labels = items.iter().map(Item::to_string).collect();
+    let rows = items.iter().map(Item::cells).collect();
     // Esc / Ctrl-C: nothing to do.
-    let Some(picked) = tui::select("Select secrets to add:", labels)? else {
+    let Some(picked) = tui::select("Select secrets to add", rows)? else {
         return Ok(());
     };
     let selected: Vec<Item> = picked.into_iter().map(|i| items[i].clone()).collect();

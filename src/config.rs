@@ -4,7 +4,6 @@
 use anyhow::{Context, Result, anyhow, bail};
 use serde::Deserialize;
 use std::collections::BTreeMap;
-use std::fmt;
 use std::path::PathBuf;
 
 /// The personal catalog: named groups of known secrets.
@@ -31,10 +30,10 @@ pub struct Item {
     pub provider: String,
 }
 
-impl fmt::Display for Item {
-    /// The line shown in the fuzzy finder.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}  [{}]  {}", self.env, self.group, self.reference)
+impl Item {
+    /// The picker columns: env name, group and reference.
+    pub fn cells(&self) -> Vec<String> {
+        vec![self.env.clone(), self.group.clone(), self.reference.clone()]
     }
 }
 
@@ -233,7 +232,7 @@ mod tests {
     }
 
     #[test]
-    fn item_label_shows_env_group_and_reference() {
+    fn cells_show_env_group_and_reference() {
         let item = Item {
             env: "SONAR_TOKEN".to_string(),
             reference: "api-keys/sonarcloud/credential".to_string(),
@@ -241,8 +240,8 @@ mod tests {
             provider: "onepass".to_string(),
         };
         assert_eq!(
-            item.to_string(),
-            "SONAR_TOKEN  [personal]  api-keys/sonarcloud/credential"
+            item.cells(),
+            ["SONAR_TOKEN", "personal", "api-keys/sonarcloud/credential"]
         );
     }
 
