@@ -46,7 +46,7 @@ reference into the project's `fnox.toml`.
 
 ## Keys
 
-Type to fuzzy-filter across env names, groups and references; matched
+Type to fuzzy-filter across labels, env names, groups and references; matched
 characters are highlighted. The filter line takes the usual readline keys.
 Colors follow the terminal palette and are disabled when `NO_COLOR` is set.
 
@@ -72,7 +72,7 @@ path with `--config` or `FNOX_ADD_CONFIG`. Run `fnox-add --init` to scaffold it.
 provider = "onepass"
 secrets = [
   "GITHUB_TOKEN:api-keys/github/credential",
-  "SONAR_TOKEN:api-keys/sonarcloud/credential",
+  { label = "SonarCloud", secret = "SONAR_TOKEN:api-keys/sonarcloud/credential" },
 ]
 
 [groups.work]
@@ -83,6 +83,9 @@ secrets = [
 ```
 
 - Each entry is `ENV_NAME:reference`, split on the first `:`.
+- An entry can instead be a `{ label, secret }` table, where `secret` is the
+  `ENV_NAME:reference` string. The label leads the entry's row in the picker to
+  tell similar secrets apart; what gets written is unchanged.
 - A bare `vault/item/field` reference is stored as `op://vault/item/field`. A
   reference with a scheme (`op://…`, `aws://…`) is stored verbatim.
 - `provider` names an existing fnox provider. fnox-add never creates providers.
