@@ -18,12 +18,32 @@ pub struct Config {
 pub struct Group {
     pub provider: String,
     #[serde(default)]
-    pub secrets: Vec<String>,
+    pub secrets: Vec<Entry>,
+}
+
+/// A catalog entry: a bare `ENV_NAME:reference` string, or a table that also
+/// carries a display label for the picker.
+#[derive(Debug, Deserialize)]
+#[serde(
+    untagged,
+    expecting = "an \"ENV_NAME:reference\" string or a { label, secret } table"
+)]
+pub enum Entry {
+    Plain(String),
+    Labeled(LabeledEntry),
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LabeledEntry {
+    pub label: String,
+    pub secret: String,
 }
 
 /// One selectable secret, resolved from a catalog entry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Item {
+    pub label: Option<String>,
     pub env: String,
     pub reference: String,
     pub group: String,
@@ -31,9 +51,14 @@ pub struct Item {
 }
 
 impl Item {
-    /// The picker columns: env name, group and reference.
+    /// The picker columns: the label (or the env name when there is none), the
+    /// env name when a label took the first column, the group and the reference.
     pub fn cells(&self) -> Vec<String> {
-        vec![self.env.clone(), self.group.clone(), self.reference.clone()]
+        let (title, env) = match &self.label {
+            Some(label) => (label.clone(), self.env.clone()),
+            None => (self.env.clone(), String::new()),
+        };
+        vec![title, env, self.group.clone(), self.reference.clone()]
     }
 }
 
@@ -65,6 +90,24 @@ pub fn value_for_ref(reference: &str) -> String {
     }
 }
 
+/// Resolve a catalog entry into its optional label, env name and reference.
+pub fn resolve_entry(entry: &Entry) -> Result<(Option<String>, String, String)> {
+    match entry {
+        Entry::Plain(secret) => {
+            let (env, reference) = parse_entry(secret)?;
+            Ok((None, env, reference))
+        }
+        Entry::Labeled(LabeledEntry { label, secret }) => {
+            let label = label.trim();
+            if label.is_empty() {
+                bail!("entry {secret:?} has an empty label");
+            }
+            let (env, reference) = parse_entry(secret)?;
+            Ok((Some(label.to_string()), env, reference))
+        }
+    }
+}
+
 /// Flatten the catalog into a deterministic item list, optionally filtered to one
 /// group. `BTreeMap` iteration yields groups in sorted order.
 pub fn build_items(cfg: &Config, group_filter: Option<&str>) -> Result<Vec<Item>> {
@@ -83,8 +126,10 @@ pub fn build_items(cfg: &Config, group_filter: Option<&str>) -> Result<Vec<Item>
             bail!("group {name:?} has no provider");
         }
         for entry in &group.secrets {
-            let (env, reference) = parse_entry(entry).with_context(|| format!("group {name:?}"))?;
+            let (label, env, reference) =
+                resolve_entry(entry).with_context(|| format!("group {name:?}"))?;
             items.push(Item {
+                label,
                 env,
                 reference,
                 group: name.clone(),
@@ -142,13 +187,14 @@ pub fn resolve_config_path(
 /// Starter catalog written by `--init`. Every example line is commented out, so a
 /// freshly created file parses as an empty catalog until the user fills it in.
 pub const CONFIG_TEMPLATE: &str = r#"# fnox-add catalog: named groups of ENV_NAME:reference entries, each bound to an
-# existing fnox provider. Uncomment and edit to define your own.
+# existing fnox provider. An entry can also be a { label, secret } table; the
+# label is shown first in the picker. Uncomment and edit to define your own.
 #
 # [groups.personal]
 # provider = "onepass"
 # secrets = [
 #   "GITHUB_TOKEN:api-keys/github/credential",
-#   "SONAR_TOKEN:api-keys/sonarcloud/credential",
+#   { label = "SonarCloud", secret = "SONAR_TOKEN:api-keys/sonarcloud/credential" },
 # ]
 #
 # [groups.work]
@@ -202,6 +248,7 @@ mod tests {
     #[test]
     fn build_set_args_with_and_without_target() {
         let item = Item {
+            label: None,
             env: "SONAR_TOKEN".to_string(),
             reference: "api-keys/sonarcloud/credential".to_string(),
             group: "personal".to_string(),
@@ -232,8 +279,9 @@ mod tests {
     }
 
     #[test]
-    fn cells_show_env_group_and_reference() {
-        let item = Item {
+    fn cells_lead_with_the_label_and_keep_the_env_name() {
+        let mut item = Item {
+            label: Some("SonarCloud (personal)".to_string()),
             env: "SONAR_TOKEN".to_string(),
             reference: "api-keys/sonarcloud/credential".to_string(),
             group: "personal".to_string(),
@@ -241,8 +289,66 @@ mod tests {
         };
         assert_eq!(
             item.cells(),
-            ["SONAR_TOKEN", "personal", "api-keys/sonarcloud/credential"]
+            [
+                "SonarCloud (personal)",
+                "SONAR_TOKEN",
+                "personal",
+                "api-keys/sonarcloud/credential"
+            ]
         );
+
+        item.label = None;
+        assert_eq!(
+            item.cells(),
+            [
+                "SONAR_TOKEN",
+                "",
+                "personal",
+                "api-keys/sonarcloud/credential"
+            ]
+        );
+    }
+
+    #[test]
+    fn labeled_entries_set_the_same_value_as_plain_ones() {
+        let cfg = parse_config(
+            r#"
+[groups.p]
+provider = "onepass"
+secrets = [
+  "GH_TOKEN:api-keys/github/credential",
+  { label = " GitHub (work) ", secret = "GH_TOKEN:api-keys/github-work/credential" },
+]
+"#,
+        )
+        .unwrap();
+        let items = build_items(&cfg, None).unwrap();
+        assert_eq!(items[0].label, None);
+        assert_eq!(items[1].label.as_deref(), Some("GitHub (work)"));
+        assert_eq!(
+            build_set_args(&items[1], None),
+            [
+                "set",
+                "GH_TOKEN",
+                "op://api-keys/github-work/credential",
+                "--provider",
+                "onepass"
+            ]
+        );
+    }
+
+    #[test]
+    fn labeled_entries_reject_blank_labels_and_unknown_keys() {
+        let blank = parse_config(
+            "[groups.x]\nprovider = \"p\"\nsecrets = [{ label = \" \", secret = \"A:v/i/f\" }]",
+        )
+        .unwrap();
+        assert!(build_items(&blank, None).is_err());
+
+        let typo = parse_config(
+            "[groups.x]\nprovider = \"p\"\nsecrets = [{ lable = \"A\", secret = \"A:v/i/f\" }]",
+        );
+        assert!(typo.is_err());
     }
 
     #[test]
