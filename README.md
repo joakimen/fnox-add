@@ -46,11 +46,13 @@ reference into the project's `fnox.toml`.
 
 ## Keys
 
-Type to fuzzy-filter. The filter line takes the usual readline keys.
+Type to fuzzy-filter across env names, groups and references; matched
+characters are highlighted. The filter line takes the usual readline keys.
+Colors follow the terminal palette and are disabled when `NO_COLOR` is set.
 
 | Key | Action |
 | --- | --- |
-| `tab` | Toggle selection of the highlighted entry |
+| `tab` | Toggle selection of the highlighted entry and move down |
 | `↑` / `↓`, `ctrl-p` / `ctrl-n` | Move the highlight |
 | `enter` | Confirm the selection |
 | `esc`, `ctrl-c` | Cancel |

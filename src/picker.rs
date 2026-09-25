@@ -132,27 +132,35 @@ impl Query {
     }
 }
 
-/// Filtering and selection state over a fixed list of labels.
+/// Filtering and selection state over a fixed list of rows, each a list of
+/// cells. The query is matched against a row's cells joined by single spaces.
 pub struct Picker {
-    labels: Vec<String>,
+    rows: Vec<Vec<String>>,
+    haystacks: Vec<String>,
     selected: Vec<bool>,
     query: Query,
-    /// Indices into `labels`, best match first.
+    /// Indices into `rows`, best match first.
     matches: Vec<usize>,
+    /// Sorted character offsets into each row's haystack that the query matched.
+    positions: Vec<Vec<u32>>,
     /// Index into `matches`.
     highlight: usize,
     matcher: Matcher,
 }
 
 impl Picker {
-    pub fn new(labels: Vec<String>) -> Self {
-        let selected = vec![false; labels.len()];
-        let matches = (0..labels.len()).collect();
+    pub fn new(rows: Vec<Vec<String>>) -> Self {
+        let haystacks = rows.iter().map(|cells| cells.join(" ")).collect();
+        let selected = vec![false; rows.len()];
+        let matches = (0..rows.len()).collect();
+        let positions = vec![Vec::new(); rows.len()];
         Self {
-            labels,
+            rows,
+            haystacks,
             selected,
             query: Query::default(),
             matches,
+            positions,
             highlight: 0,
             matcher: Matcher::new(Config::DEFAULT),
         }
@@ -166,17 +174,34 @@ impl Picker {
         self.query.caret
     }
 
-    /// Indices into the label list, in the order they are displayed.
+    /// Indices into the row list, in the order they are displayed.
     pub fn matches(&self) -> &[usize] {
         &self.matches
     }
 
     pub fn total(&self) -> usize {
-        self.labels.len()
+        self.rows.len()
     }
 
-    pub fn label(&self, index: usize) -> &str {
-        &self.labels[index]
+    pub fn cells(&self, index: usize) -> &[String] {
+        &self.rows[index]
+    }
+
+    /// For each cell of a row, the sorted character offsets the query matched.
+    pub fn matched_chars(&self, index: usize) -> Vec<Vec<usize>> {
+        let mut per_cell = vec![Vec::new(); self.rows[index].len()];
+        let mut start = 0;
+        let mut positions = self.positions[index].iter().map(|&p| p as usize).peekable();
+        for (cell, hits) in self.rows[index].iter().zip(&mut per_cell) {
+            let end = start + cell.chars().count();
+            while let Some(p) = positions.next_if(|&p| p < end) {
+                if p >= start {
+                    hits.push(p - start);
+                }
+            }
+            start = end + 1;
+        }
+        per_cell
     }
 
     pub fn is_selected(&self, index: usize) -> bool {
@@ -192,7 +217,7 @@ impl Picker {
         self.highlight
     }
 
-    /// The selected label indices, in list order.
+    /// The selected row indices, in list order.
     pub fn selection(&self) -> Vec<usize> {
         self.selected
             .iter()
@@ -215,12 +240,11 @@ impl Picker {
             Action::MoveLineStart => self.query.caret = 0,
             Action::MoveLineEnd => self.query.caret = self.query.text.len(),
             Action::HighlightUp => self.highlight = self.highlight.saturating_sub(1),
-            Action::HighlightDown => {
-                self.highlight = (self.highlight + 1).min(self.matches.len().saturating_sub(1));
-            }
+            Action::HighlightDown => self.move_down(),
             Action::ToggleHighlighted => {
                 if let Some(&index) = self.matches.get(self.highlight) {
                     self.selected[index] = !self.selected[index];
+                    self.move_down();
                 }
             }
             Action::Accept => return Flow::Accept,
@@ -229,16 +253,22 @@ impl Picker {
         Flow::Continue
     }
 
+    fn move_down(&mut self) {
+        self.highlight = (self.highlight + 1).min(self.matches.len().saturating_sub(1));
+    }
+
     /// Run a query edit and re-filter, dropping the highlight back to the top.
     fn edit(&mut self, f: impl FnOnce(&mut Query)) {
         f(&mut self.query);
-        self.matches = self.filter();
+        self.filter();
         self.highlight = 0;
     }
 
-    fn filter(&mut self) -> Vec<usize> {
+    fn filter(&mut self) {
+        self.positions.iter_mut().for_each(Vec::clear);
         if self.query.text.is_empty() {
-            return (0..self.labels.len()).collect();
+            self.matches = (0..self.rows.len()).collect();
+            return;
         }
         let pattern = Pattern::parse(
             &self.query.as_string(),
@@ -246,18 +276,22 @@ impl Picker {
             Normalization::Smart,
         );
         let mut buf = Vec::new();
-        let mut scored: Vec<(usize, u32)> = self
-            .labels
-            .iter()
-            .enumerate()
-            .filter_map(|(i, label)| {
-                let score = pattern.score(Utf32Str::new(label, &mut buf), &mut self.matcher)?;
-                Some((i, score))
-            })
-            .collect();
-        // Stable sort, so equally scored labels keep their catalog order.
+        let mut scored = Vec::new();
+        for (i, haystack) in self.haystacks.iter().enumerate() {
+            let hits = &mut self.positions[i];
+            let Some(score) =
+                pattern.indices(Utf32Str::new(haystack, &mut buf), &mut self.matcher, hits)
+            else {
+                hits.clear();
+                continue;
+            };
+            hits.sort_unstable();
+            hits.dedup();
+            scored.push((i, score));
+        }
+        // Stable sort, so equally scored rows keep their catalog order.
         scored.sort_by_key(|&(_, score)| std::cmp::Reverse(score));
-        scored.into_iter().map(|(i, _)| i).collect()
+        self.matches = scored.into_iter().map(|(i, _)| i).collect();
     }
 }
 
@@ -288,11 +322,15 @@ mod tests {
         key(KeyCode::Char(c), KeyModifiers::CONTROL)
     }
 
+    fn row(cells: &[&str]) -> Vec<String> {
+        cells.iter().map(ToString::to_string).collect()
+    }
+
     fn picker() -> Picker {
         Picker::new(vec![
-            "GH_TOKEN  [personal]  api-keys/github/credential".to_string(),
-            "SONAR_TOKEN  [personal]  api-keys/sonarcloud/credential".to_string(),
-            "ARTIFACTORY_TOKEN  [work]  work/artifactory/token".to_string(),
+            row(&["GH_TOKEN", "personal", "api-keys/github/credential"]),
+            row(&["SONAR_TOKEN", "personal", "api-keys/sonarcloud/credential"]),
+            row(&["ARTIFACTORY_TOKEN", "work", "work/artifactory/token"]),
         ])
     }
 
@@ -312,11 +350,23 @@ mod tests {
 
         p.apply(Action::ToggleHighlighted);
         assert_eq!(p.selection(), vec![0]);
-        p.apply(Action::HighlightDown);
+        p.apply(Action::HighlightUp);
         p.apply(Action::ToggleHighlighted);
+        assert_eq!(p.selection(), Vec::<usize>::new());
+    }
+
+    #[test]
+    fn toggling_advances_the_highlight_and_stops_at_the_last_item() {
+        let mut p = picker();
+        p.apply(Action::ToggleHighlighted);
+        assert_eq!(p.highlight(), 1);
+        p.apply(Action::ToggleHighlighted);
+        p.apply(Action::ToggleHighlighted);
+        assert_eq!(p.highlight(), 2);
+        assert_eq!(p.selection(), vec![0, 1, 2]);
+        p.apply(Action::ToggleHighlighted);
+        assert_eq!(p.highlight(), 2);
         assert_eq!(p.selection(), vec![0, 1]);
-        p.apply(Action::ToggleHighlighted);
-        assert_eq!(p.selection(), vec![0]);
     }
 
     #[test]
@@ -416,6 +466,39 @@ mod tests {
 
         p.apply(Action::DeleteWordBack);
         assert_eq!(p.matches(), [0, 1, 2]);
+    }
+
+    #[test]
+    fn labels_are_searchable() {
+        let mut p = Picker::new(vec![
+            row(&[
+                "GitHub (personal)",
+                "GH_TOKEN",
+                "api-keys/github/credential",
+            ]),
+            row(&["GitHub (work)", "GH_TOKEN", "work/github/credential"]),
+        ]);
+        type_query(&mut p, "ghwork");
+        assert_eq!(p.matches(), [1]);
+    }
+
+    #[test]
+    fn matched_chars_are_reported_per_cell() {
+        let mut p = picker();
+        assert_eq!(p.matched_chars(1), [vec![], vec![], vec![]]);
+
+        type_query(&mut p, "'SONAR 'personal");
+        assert_eq!(
+            p.matched_chars(1),
+            [vec![0, 1, 2, 3, 4], vec![0, 1, 2, 3, 4, 5, 6, 7], vec![]]
+        );
+    }
+
+    #[test]
+    fn matched_chars_ignore_empty_cells() {
+        let mut p = Picker::new(vec![row(&["ab", "", "cd"])]);
+        type_query(&mut p, "'cd");
+        assert_eq!(p.matched_chars(0), [vec![], vec![], vec![0, 1]]);
     }
 
     #[test]
