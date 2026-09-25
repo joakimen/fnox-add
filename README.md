@@ -28,7 +28,7 @@ gh attestation verify fnox-add-aarch64-apple-darwin.tar.gz --repo joakimen/fnox-
 Or build from source:
 
 ```sh
-cargo install --path .
+cargo install --locked --path .
 ```
 
 ## Usage
